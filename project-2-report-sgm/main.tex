@@ -1,0 +1,529 @@
+\documentclass[sigconf]{acmart}
+
+% ACM SIGCONF formatting
+\usepackage{graphicx} % for including images
+\usepackage{amsmath} % for math formulas
+\usepackage{url} % for URL handling
+\usepackage{hyperref} % for clickable links
+
+% \renewcommand{\textfraction}{0.1} % Minimum fraction of text on a page
+% \renewcommand{\floatpagefraction}{0.9} % Maximum fraction for floats
+
+
+% Remove ACM Reference Format block for initial submission
+\settopmatter{printacmref=false}
+
+% Title
+\title{Report on analysis of the data collected from 4chan and Reddit}
+
+% Author(s)
+\author{Mukhil Venkataramanan}
+\affiliation{
+  \institution{SUNY Binghamton}
+  \city{Binghamton}
+  \country{USA}
+}
+\email{mvenkatarama@binghamton.edu}
+
+\author{Gurusaran Venkatachalam Rajarajacholan}
+\affiliation{
+  \institution{SUNY Binghamton}
+  \city{Binghamton}
+  \country{USA}
+}
+\email{gvenkatachal@binghamton.edu}
+
+\author{Sai Prakash}
+\affiliation{
+  \institution{SUNY Binghamton}
+  \city{Binghamton}
+  \country{USA}
+}
+\email{snalubolu@binghamton.edu}
+
+% Begin the document
+\begin{document}
+
+\begin{abstract}
+ This report explains the methodologies and experiments designed
+ to analyze the data collected from various Reddit’s subreddits and
+ 4chan’s boards. The primary focus is on measuring toxicity,
+ analyzing sentiment trends, and understanding user engagement in
+discussions of various topics related to politics and sports. The analysis will utilize the Moderate Hatespeech API to assign toxicity scores in real-time, while sentiment analysis will be conducted using natural language processing (NLP) techniques. Key trends in posting frequency, sentiment evolution, and the correlation between engagement and toxicity will be examined. The proposed research aims to uncover valuable insights
+ into the nature of online interactions in sports communities, provid
+ing a foundation for deeper exploration in future work. The analysis
+ will also address three primary research questions concerning toxi
+city comparisons, the relationship between user engagement and
+ toxicity, and sentiment trends across the platforms
+
+\end{abstract}
+
+% Keywords (optional)
+\keywords{Data Collection, Reddit API, 4chan API, Sports Subreddits, Report, Implementation, PostGreSQL, Faktory, Docker, Python}
+
+% Generate title and author information
+\maketitle
+
+\section{Introduction}
+The proliferation of data on social media platforms such as Reddit and 4chan provides a rich source of information for real-time analysis and insights. These are two of the most influential online platforms, playing a significant role in shaping public opinions, and trends, especially within niche communities. Collecting data from these platforms provides us a wealth of user-generated content that is highly unfiltered and diverse. The real-time, organic conversations that take place on these platforms offer invaluable insights into not only what people are discussing but also how ideas and sentiments spread across different demographics.\newline
+
+\textbf{Motivation:}
+The motivation for this project stems from the increasing influence of online platforms like Reddit and 4chan on public discourse. While Reddit represents a semi-moderated environment, 4chan offers a uniquely anonymous space, often linked to controversial discussions and behaviors. Understanding the dynamics of these platforms, particularly the nature of toxic and non-toxic content, can provide valuable insights into online community behavior, misinformation spread, and digital culture trends.\newline
+
+The broader impact of this work lies in its potential applications in content moderation, public policy, and social media research. By analyzing the prevalence and patterns of toxic content, this study contributes to creating safer online environments and equipping stakeholders with tools to address harmful behaviors. Additionally, this research enhances our understanding of user behavior in anonymous versus semi-anonymous platforms, aiding in the design of better communication and engagement strategies.
+
+\section{Background and related work}
+\subsection{Existing Literature Review:}
+There is a rich body of literature on sentiment analysis and toxicity detection in online platforms. Works like Davidson et al.'s "Automated Hate Speech Detection and the Problem of Offensive Language" have laid the foundation for toxicity classification. Similarly, Waseem and Hovy's research on abusive language detection provides insights into leveraging machine learning models for text-based analysis. Studies on Reddit, such as Chandrasekharan et al.'s "The Internet's Hidden Gems: Empirical Research on Reddit", explore its user dynamics and moderation impacts. However, literature on 4chan remains relatively sparse due to its highly anonymous and transient nature.
+
+\subsection{Existing Frameworks and Tools:}
+\begin{itemize}
+    \item Hugging Face Transformers for sentiment analysis using state-of-the-art models like BERT and RoBERTa.
+    \item Tools like NLTK and Scikit-learn for natural language processing and feature extraction.
+    \item APIs for structured data collection from Reddit (PRAW) and 4chan’s JSON endpoints.
+\end{itemize}
+
+
+\subsection{Comparable Works:}
+Several studies inspired this project, including Matsuba et al.'s research on 4chan’s role in spreading misinformation and works analyzing political discourse on Reddit. This project extends their scope by incorporating a cross-platform analysis and focusing on sentiment and toxicity patterns.\newline
+
+By building on existing methods and adapting them to the unique challenges of 4chan and Reddit, this project contributes novel insights into the nature of online discourse. 
+
+
+\section{Dataset Description}
+\subsection{Reddit}
+For the posts table:
+
+    \begin{itemize}
+        \item \textbf{Post ID:} Unique identifier for each post. This is essential for tracking and avoiding duplicate entries.
+        
+        \item \textbf{Title:}: The title gives a brief description of the post's content, making it crucial for text analysis. It also allows for easy post retrieval based on search queries or keywords.
+        
+        \item \textbf{Content (selftext)::} The main body of the post, which contains the detailed text that users write. It is important for analyzing the actual discussions happening in a subreddit. By storing the full content, we can extract insights like common topics, user interests, or text sentiment.
+        
+        \item \textbf{Author:} The username of the person who made the post. Collecting author information helps to analyze user behavior patterns, track the activity of specific individuals, and correlate authorship with post quality, engagement, or popularity.
+        
+        \item \textbf{Score:} The post score represents the total number of upvotes minus downvotes. This is a key metric for understanding community engagement and gauging the overall popularity or reception of a post.
+        
+        \item \textbf{Comments:} Number of comments on the post. The comment count indicates the engagement level of the community with a particular post, providing insight into the relevance and discussions generated by the content.
+        
+        \item \textbf{Created At:} This is the timestamp indicating when the post was created. This field is essential for time-series analysis, understanding patterns of activity over time, and examining trends within a subreddit.
+        
+        \item \textbf{Subreddit:} The specific subreddit where the post was made. This is important for categorizing data and allowing us to compare patterns across different communities.
+        
+        \item \textbf{URL:} The direct URL to the post, useful for retrieval, validation, or manual inspection. Having this stored allows for easy referencing of the original content on Reddit.
+
+        \item \textbf{Toxic Class} Takes the value of 'flag' or 'normal'. Says whether the contents in the reddit posts are toxic or not
+
+        \item \textbf{Toxic Score} Takes the values between 0 and 1. Says the numerical value for confidence level by which the text is classified as 'flag' or 'normal'
+
+        \item \textbf{Toxic Flag} Takes in values as True/False. Marks True if the toxic class is 'flag' and the toxic score is more than 0.9, else False.
+
+    
+    \end{itemize}
+
+For the comments table:
+
+    \begin{itemize}
+    
+        \item \textbf{Post ID:} The foreign key connecting the comment to its parent post. This establishes a relationship between posts and their comments, allowing us to perform queries that analyze comment activity on a per-post basis.
+    
+        \item \textbf{Comment ID:} Unique identifier for each comment. Similar to the post ID, this ensures that each comment is uniquely identifiable and prevents duplication.
+        
+        \item \textbf{Author:} The username of the commenter. Tracking who is making comments can reveal patterns in engagement and contribute to user-based analysis, such as identifying frequent contributors or potential influencers.
+        
+        \item \textbf{Body} The text of the comment. This allows for sentiment analysis and deeper textual analysis of discussions happening in response to posts. It’s crucial for understanding the nature of conversations around posts.
+        
+        \item \textbf{Score:} The score of the comment, representing upvotes minus downvotes. Just like post score, this helps gauge the community's reaction to individual comments, allowing for an understanding of which comments contribute most to the discussion.
+        
+        \item \textbf{Created At:} Timestamp indicating when the comment was made. This field is vital for studying patterns over time, understanding how quickly discussions grow after a post is made, and performing time-based analysis.
+
+        \item \textbf{Toxic Class} Takes the value of 'flag' or 'normal'. Says whether the contents in the reddit comemnts are toxic or not
+
+        \item \textbf{Toxic Score} Takes the values between 0 and 1. Says the numerical value for confidence level by which the text is classified as 'flag' or 'normal'
+
+        \item \textbf{Toxic Flag} Takes in values as True/False. Marks True if the toxic class is 'flag' and the toxic score is more than 0.9, else False.
+
+    \end{itemize}
+
+\subsection{4chan}
+For posts table:
+\begin{itemize}
+        \item \textbf{Board:} This field indicates which specific 4chan board (such as /pol/, /b/, or /g/) the post belongs to. Each board has a distinct community, rules, and content focus. Collecting this data allows for filtering and analyzing posts by the board, which helps understand different discussion trends, content types, and user engagement across various topics. It’s essential to identify patterns and differences in discourse depending on the context of the board.
+
+        \item \textbf {Thread Number:} A thread on 4chan serves as a container for a series of related posts. The thread number is vital for grouping posts together, as it ensures that all related posts can be analyzed as a single conversation. This data can be used for analyzing the lifespan of a thread, how quickly discussions evolve, or how viral certain threads become. It's also crucial for identifying influential threads within a board.
+        
+        \item \textbf {Post Number:} The post number provides a unique identifier for each individual post within a thread. This field is necessary for maintaining the hierarchy of posts, especially when analyzing post reply chains or creating visualizations of user interactions within threads.
+        
+        \item \textbf {Data}: The content of the post (or "data") includes the text, images, or other media shared by users. This is the most important field for sentiment analysis, text mining, topic modeling, and other content analysis techniques. Capturing the post data enables a deep dive into what users are discussing, the tone of their interactions, and emerging themes or controversial topics within the boards.
+
+        \item \textbf{Toxic Class} Takes the value of 'flag' or 'normal'. Says whether the contents in the 4chan posts are toxic or not
+
+        \item \textbf{Toxic Score} Takes the values between 0 and 1. Says the numerical value for confidence level by which the text is classified as 'flag' or 'normal'
+
+        \item \textbf{Toxic Flag} Takes in values as True/False. Marks True if the toxic class is 'flag' and the toxic score is more than 0.9, else False.
+    
+    \end{itemize}
+
+
+
+\section{Data Analysis}
+\subsection{4chan}
+
+% Requires: \usepackage{array}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{S.No} & \textbf{Board} & \textbf{Count} \\
+        \hline
+         1 & pol & 5185451 \\
+        \hline
+         2 & sp & 3079416 \\
+        \hline
+    \end{tabular}
+    \caption{Posts per board in 4chan}
+    \label{tab:sample_table}
+\end{table}
+
+The Figure \ref{fig:4chan_images/posts_per_board} shows that more data is collected from /pol board than /sp. The board /pol is quite popular than /sp as it receives more posts.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{4chan_images/posts_per_board.png} % Replace with 
+    \caption{Posts per board}
+    \label{fig:4chan_images/posts_per_board}
+\end{figure}
+
+
+The Figure \ref{fig:4chan_images/posts_per_day} clearly shows that there is increase in the uses activity and posting in the 4chan around the dates of election and its results.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{4chan_images/posts_per_day.png} % Replace with 
+    \caption{Posts in 4chan per day}
+    \label{fig:4chan_images/posts_per_day}
+\end{figure}
+
+The Figure \ref{fig:4chan_images/posts_per_day_pol} clearly shows that there is increase in the user activity and posting in the 4chan around the dates of election and its results.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{4chan_images/posts_per_day_pol.png} % Replace with 
+    \caption{Posts in per day in pol board}
+    \label{fig:4chan_images/posts_per_day_pol}
+\end{figure}
+
+The Figure \ref{fig:4chan_images/toxic_class_dist} shows us the 4chan posts than are flagged as toxic and not flagged as toxic from moderate hate speech API. Clearly there are more normal posts than toxic posts.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{4chan_images/toxic_class_dist.png} % Replace with 
+    \caption{Flag vs Normal class}
+    \label{fig:4chan_images/toxic_class_dist}
+\end{figure}
+
+The Figure \ref{fig:4chan_images/posts_per_day_by_toxicity_class} out of all the posts collected per day, how many are flagged as toxic and non toxic posts. We can see the increase in toxicity around the dates of the US presidential election.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{4chan_images/posts_per_day_by_toxicity_class.png} % Replace with 
+    \caption{Posts per day by toxicity class}
+    \label{fig:4chan_images/posts_per_day_by_toxicity_class}
+\end{figure}
+
+
+The Figure \ref{fig:4chan_images/engagement_vs_toxicity} shows the scatter plot of engagement vs toxicity in 4chan posts. We infer that if the engagement score is more, the post doesn't have to be toxic. Less toxic posts also get a higher engagement score.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{4chan_images/engagement_vs_toxicity.png} % Replace with 
+    \caption{Engagement vs toxicity}
+    \label{fig:4chan_images/engagement_vs_toxicity}
+\end{figure}
+
+
+The Figure \ref{fig:4chan_images/comments_per_hr_pol} shows the comments collected from the 4chan pol board. More comments are seen during the dates of US presidential election.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{4chan_images/comments_per_hr_pol.png} % Replace with 
+    \caption{Comments per hour in /pol board}
+    \label{fig:4chan_images/comments_per_hr_pol}
+\end{figure}
+
+The Figure \ref{fig:4chan_images/avg_toxicity_by_date_pol} shows average toxic and non-toxic scores of posts collected from board pol over the time. \newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{4chan_images/avg_toxicity_by_date_pol.png} % Replace with 
+    \caption{Average toxic vs non toxic scores in 4chan posts}
+    \label{fig:4chan_images/avg_toxicity_by_date_pol}
+\end{figure}
+
+The Figure \ref{fig:4chan_images/sentiment_dist} shows sentiment distribution of the top 100 most engaging posts collected in 4chan over the time\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{4chan_images/sentiment_dist.png} % Replace with 
+    \caption{Sentiment distribution of trending posts}
+    \label{fig:4chan_images/sentiment_dist}
+\end{figure}
+
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=0.8\linewidth]{4chan_images/avg_toxicity_by_date_pol.png} % Replace with 
+%     \caption{Average toxicity by date in /pol}
+%     \label{fig:avg_toxicity_by_date_pol}
+% \end{figure}
+
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=0.8\linewidth]{4chan_images/avg_toxicity_by_date_sp.png} % Replace with 
+%     \caption{Average toxicity by date in /sp}
+%     \label{fig:avg_toxicity_by_date_sp}
+% \end{figure}
+
+
+\subsection{Reddit}
+
+% Requires: \usepackage{array}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        \textbf{S.No} & \textbf{Subreddit} & \textbf{Posts Count} & \textbf{Comments Count} \\ \hline
+        1 & CFB       & 3150   & 91407   \\ \hline
+        2 & Cricket   & 1925   & 129743  \\ \hline
+        3 & football  & 657    & 9236    \\ \hline
+        4 & formula1  & 1731   & 46905   \\ \hline
+        5 & mlb       & 628    & 13432   \\ \hline
+        6 & nba       & 3895   & 69940   \\ \hline
+        7 & politics  & 8230   & 132543  \\ \hline
+        8 & soccer    & 6352   & 99216   \\ \hline
+        9 & sports    & 1058   & 20476   \\ \hline
+        10 & tennis   & 2104   & 36165   \\ \hline
+    \end{tabular}
+    \caption{Subreddit Posts and Comments Count}
+    \label{tab:subreddit_counts}
+\end{table}
+
+
+The Figure \ref{fig:reddit_images/posts_per_subreddit} shows that the r/politics have most posts collected over the time.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/posts_per_subreddit.png} % Replace with 
+    \caption{Posts per subreddit}
+    \label{fig:reddit_images/posts_per_subreddit}
+\end{figure}
+
+
+The Figure \ref{fig:reddit_images/comments_per_subreddit} shows that the r/politics have most comments collected over the time.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/comments_per_subreddit.png} % Replace with 
+    \caption{Comments per subreddit}
+    \label{fig:reddit_images/comments_per_subreddit}
+\end{figure}
+
+
+The Figure \ref{fig:reddit_images/posts_per_day} shows that there is peak user activity during the time of US presidential elections and during the Indian cricket test series.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/posts_per_day.png} % Replace with 
+    \caption{Posts per day}
+    \label{fig:reddit_images/posts_per_day}
+\end{figure}
+
+
+The Figure \ref{fig:reddit_images/posts_per_day} shows the peak user activity during the time of US presidential elections and during the Indian cricket test series.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/comments_per_day.png} % Replace with 
+    \caption{Comments per day}
+    \label{fig:reddit_images/comments_per_day}
+\end{figure}
+
+
+The Figure \ref{fig:reddit_images/flag_vs_normal} shows that more toxic comments are collected compared to toxic comments.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/flag_vs_normal.png} % Replace with 
+    \caption{Comments - flag vs normal distribution}
+    \label{fig:reddit_images/flag_vs_normal}
+\end{figure}
+
+
+The Figure \ref{fig:reddit_images/comments_flag_vs_normal} shows that toxic posts collected per day is relatively small compared to nontoxic posts.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/posts_flag_vs_normal.png} % Replace with 
+    \caption{Posts per day flag vs normal}
+    \label{fig:reddit_images/posts_flag_vs_normal}
+\end{figure}
+
+
+The Figure \ref{fig:reddit_images/comments_flag_vs_normal} shows that toxic posts collected per day is relatively small compared to nontoxic comments.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/comments_flag_vs_normal.png} % Replace with 
+    \caption{Comments per day flag vs normal}
+    \label{fig:reddit_images/comments_flag_vs_normal}
+\end{figure}
+
+The Figure \ref{fig:reddit_images/enagagement_vs_toxicity} shows that most of the collected posts are non-toxic irrespective of whether they have a higher engagement value or not.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/enagagement_vs_toxicity.png} % Replace with 
+    \caption{Engagement vs toxicity}
+    \label{fig:reddit_images/enagagement_vs_toxicity}
+\end{figure}
+
+The Figure \ref{fig:reddit_images/avg_score_toxic_non_toxic_comments} shows the average scores of toxic and non toxic comments in Reddit.\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/avg_score_toxic_non_toxic_comments.png} % Replace with 
+    \caption{Average toxic vs non-toxic scores of reddit comments}
+    \label{fig:reddit_images/avg_score_toxic_non_toxic_comments}
+\end{figure}
+
+
+
+The Figure \ref{fig:reddit_images/posts_per_day_pol} shows that there is more user activity on the days of US election\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/posts_per_day_pol.png} % Replace with 
+    \caption{Posts per day in r/politics}
+    \label{fig:reddit_images/posts_per_day_pol}
+\end{figure}
+
+
+The Figure \ref{fig:reddit_images/comments_per_day_pol} shows that there is more user activity on the days of US election\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/comments_per_day_pol.png} % Replace with 
+    \caption{Comments per day in r/politics}
+    \label{fig:reddit_images/comments_per_day_pol}
+\end{figure}
+
+
+The Figure \ref{fig:reddit_images/comments_per_hr_pol} shows that there is more user activity on the days of US election\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/comments_per_hr_pol.png} % Replace with 
+    \caption{Comments per hr in r/politics}
+    \label{fig:reddit_images/comments_per_hr_pol}
+\end{figure}
+
+
+The Figure \ref{fig:reddit_images/sentiment_dist} shows the sentiment distribution of top 100 engaging posts from reddit\newline
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{reddit_images/sentiment_dist.png} % Replace with 
+    \caption{Sentiment distribution of trending posts}
+    \label{fig:reddit_images/sentiment_dist}
+\end{figure}
+
+\section{Discussion}
+Progress so far includes the successful development and deployment of a data collection pipeline for both 4chan and Reddit. Using APIs and structured data storage techniques, a robust dataset has been curated. Preliminary sentiment analysis using state-of-the-art models has revealed distinct patterns in toxic and non-toxic content prevalence. Additionally, statistical comparisons between the platforms indicate differences in user engagement and behavior.
+
+This work is significant as it addresses the growing need to understand toxicity and sentiment in online spaces, especially in anonymous platforms like 4chan, which are often under-researched. The insights gained from this study have implications for designing better content moderation systems, understanding community dynamics, and fostering healthier online environments.
+
+\subsection{Report summary}
+This project explores the collection and analysis of data from 4chan and Reddit, focusing on toxic content, engagement and sentiment trends. It leverages APIs and JSON endpoints to collect posts and applies sentiment analysis models to examine the differences between these platforms. The primary goals are to understand the volume and types of toxic content, compare sentiment trends, and evaluate the effectiveness of existing sentiment analysis tools on data from these platforms.
+
+\subsection{Implications of findings}
+\begin{itemize}
+ 
+    \item Preliminary analysis shows a significantly higher volume of user activity in both the platforms during the US presidential election and other major events in sports.
+    
+    \item Preliminary analysis shows a significantly higher volume of toxic content on 4chan compared to Reddit, likely due to differences in moderation practices.
+    
+    \item Sentiment trends on 4chan tend to skew towards negativity, while Reddit exhibits a wider range of sentiments, depending on the subreddit.
+    
+    \item The 4chan most engaging posts in 4chan are mostly being toxic, where as in case of reddit, it is not true. Reddit has more  non-toxic engaging posts.
+    
+
+\end{itemize}
+
+\subsection{Limitations}
+
+\begin{itemize}
+
+    \item \textbf{Data Bias:} Data collection methods may not fully capture the diversity of posts on either platform as we focus only on parts of it. Moreover 4chan is not famous as reddit in some countries.
+    \item \textbf{Computational Limitations:} The hugging face transformers, which is used to perform sentiment analysis takes a lot of time to analyse large amount of data.
+    \item \textbf{Temporal Resolution:} The analysis is currently limited to a fixed time range and does not yet account for seasonal or event-based variations.
+    \item \textbf{APIs:} While Reddit’s API is structured, 4chan’s JSON endpoints occasionally provide incomplete or inconsistent data.
+    \item \textbf{System Failures:} Although the system is robust to well known failures, it is still a question that if it can handle unexpected failures and there are no data back stored for recovery.
+    
+\end{itemize}
+
+\subsection{Future work}
+\begin{itemize}
+
+    \item \textbf{Fine-tuning Models:} Custom training of sentiment and toxicity models using platform-specific data to improve accuracy.
+    
+    \item \textbf{Real-Time Analysis}: Developing a pipeline for real-time sentiment tracking to observe dynamic changes.
+    
+    \item \textbf{Context Analysis:} Incorporating contextual factors like post length, reply chains, and user engagement metrics for deeper insights.
+    
+    \item \textbf{Multilingual Support:} Extending the project to analyze posts in other languages for platforms with diverse user bases.
+    \item \textbf{Multi-modal Support:} Extending the project to analyze posts in other formats like photos, videos and audios in platforms with diverse user bases.
+
+\end{itemize}
+
+\subsection{Research questions}
+\begin{itemize}
+
+\item How does toxicity in sports-related discussions compare
+ across Reddit and 4chan?
+ \item  Is there a correlation between high engagement(e.g., number
+ of comments or upvotes) and toxicity levels?
+ \item  What sentiment trends can be observed across sports discus
+sions, and how do they evolve over time
+
+\end{itemize}
+
+\section{Conclusion}
+This project successfully demonstrated the feasibility of collecting and analyzing data from 4chan and Reddit to understand toxic content and sentiment trends across the two platforms. By leveraging API endpoints and sentiment analysis tools, we identified key differences in platform behavior, such as the higher prevalence of toxic content on 4chan compared to Reddit, and the broader sentiment diversity on Reddit due to better moderation and community structures.
+
+Despite these successes, the project also revealed several limitations. The sentiment analysis models used were not fully optimized for the unique language and slang prevalent on 4chan, leading to potential inaccuracies. Additionally, data biases and platform-specific data inconsistencies highlight the need for more robust data collection strategies.
+
+Looking ahead, there are several promising directions for extending this work. Developing custom sentiment analysis models tailored to the linguistic nuances of platforms like 4chan and Reddit would enhance accuracy. Expanding the analysis to include real-time tracking, multilingual data, and cross-platform comparisons could provide deeper insights into online discourse trends.
+
+Ultimately, this project underscores the importance of understanding toxic behavior and sentiment dynamics on online platforms. Such insights have the potential to inform platform moderation strategies, combat the spread of harmful content, and contribute to broader discussions about digital ethics and community management.
+
+% 6. References
+\bibliographystyle{ACM-Reference-Format}
+\begin{thebibliography}{9}
+
+\bibitem{example1}
+\textbf{4chan API documentation:} \textit{https://github.com/4chan/4chan-API}.
+
+\bibitem{example2}
+\textbf{Official Reddit API documentation:} \textit{https://www.reddit.com/dev/api/}.
+
+\bibitem{example3}
+\textbf{Faktory Official Github Page:}
+\textit{https://github.com/contribsys/faktory}.
+
+% \textbf{Sources Already Used:}
+
+\bibitem{example4} Davidson, T., Warmsley, D., Macy, M., & Weber, I. (2017). Automated Hate Speech Detection and the Problem of Offensive Language.
+
+\bibitem{example5} Waseem, Z., & Hovy, D. (2016). Hateful Symbols or Hateful People? Predictive Features for Hate Speech Detection on Twitter.
+
+\bibitem{example6} Chandrasekharan, E., Pavalanathan, U., Srinivasan, A., Glynn, A., Eisenstein, J., & Gilbert, E. (2017). You Can’t Stay Here: The Efficacy of Reddit’s 2015 Ban Examined Through Hate Speech.
+Hugging Face documentation and model libraries for sentiment and toxicity analysis.
+
+
+% \textbf{Additional References to Explore:}
+
+% \bibitem{example7} Hutto, C., & Gilbert, E. (2014). VADER: A Parsimonious Rule-based Model for Sentiment Analysis of Social Media Text.
+
+% \bibitem{example8} Research on anonymity and behavior, e.g., Suler, J. (2004). The Online Disinhibition Effect.
+% Studies on cross-platform content analysis and the impact of moderation policies.
+
+
+
+\end{thebibliography}
+
+\section{GitHgub Repository}
+\textbf{Project Implementation:}
+\href{https://github.com/2024-Fall-CS-415-515/project-2-implementation-sgm} 
+
+\textit{https://github.com/2024-Fall-CS-415-515/project-2-implementation-sgm}
+
+
+\end{document}
